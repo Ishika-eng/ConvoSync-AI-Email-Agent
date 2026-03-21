@@ -1,0 +1,8 @@
+langgraph==0.2.55
+langchain-core==0.3.28
+groq>=0.13.0
+python-dotenv==1.0.1
+google-api-python-client==2.120.0
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.0
+dateparser==1.2.0
