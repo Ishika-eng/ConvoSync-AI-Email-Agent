@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ConvoSync — AI Email Assistant</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="gradient-bg"></div>
+  
+  <div class="container">
+    <header>
+      <div class="logo">ConvoSync</div>
+      <a href="mailto:convosyncai@gmail.com" class="cta-button">Launch AI</a>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-content">
+          <h1>Effortless <span>Coordination</span> For Busy Teams</h1>
+          <p>The AI assistant that manages your email threads, finds common availability, and schedules your meetings automagically.</p>
+          
+          <!-- New Connection Form -->
+          <div class="connection-form-container">
+            <h3 id="form-title">Connect with ConvoSync AI</h3>
+            
+            <!-- Google OAuth Button -->
+            <div id="auth-section">
+              <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">Authorize the assistant to manage your calendar directly.</p>
+              <a href="http://localhost:8000/auth/login" class="cta-button" style="width: 100%; text-align: center; display: block; background: #fff; color: #000;">
+                <img src="https://www.google.com/favicon.ico" style="width: 16px; vertical-align: middle; margin-right: 8px;"> Connect My Calendar
+              </a>
+            </div>
+
+            <form id="connection-form" style="display: none; margin-top: 2rem; border-top: 1px solid var(--glass-border); padding-top: 2rem;">
+              <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">Send a quick message to the agent.</p>
+              <input type="text" id="user-name" placeholder="Your Name" required>
+              <input type="hidden" id="user-email">
+              <textarea id="user-message" placeholder="Message for the AI (e.g. 'Set up a demo')" required></textarea>
+              <button type="submit" class="cta-button" id="submit-btn">Send Message to AI</button>
+            </form>
+            <div id="form-status"></div>
+          </div>
+        </div>
+        <div class="hero-image">
+          <img src="./public/hero.png" alt="ConvoSync AI Assistant">
+        </div>
+      </section>
+
+      <section class="features" id="features">
+        <div class="section-title">
+          <h2>Why ConvoSync?</h2>
+          <p>We solve the scheduling headache so you can focus on the work.</p>
+        </div>
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="icon">🔍</div>
+            <h3>Smart Intent Classifier</h3>
+            <p>Automatically detects if an email is a meeting request or a thread update.</p>
+          </div>
+          <div class="feature-card">
+            <div class="icon">📅</div>
+            <h3>Google Calendar Sync</h3>
+            <p>Directly creates events and generates Google Meet links for your team.</p>
+          </div>
+          <div class="feature-card">
+            <div class="icon">🧠</div>
+            <h3>Autonomous Identity</h3>
+            <p>Responds professionally on your behalf, with transparency and safety.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="how-it-works" id="how">
+        <div class="section-title">
+          <h2>How It Works</h2>
+        </div>
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="icon">1</div>
+            <h3>Send an Email</h3>
+            <p>CC or email <strong>convosyncai@gmail.com</strong> with your meeting request.</p>
+          </div>
+          <div class="feature-card">
+            <div class="icon">2</div>
+            <h3>AI Coordinates</h3>
+            <p>The agent parses availability and checks the calendar for overlaps.</p>
+          </div>
+          <div class="feature-card">
+            <div class="icon">3</div>
+            <h3>Invite Sent</h3>
+            <p>An automated invite and meet link are sent to everyone involved.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>&copy; 2026 ConvoSync AI — Built for speed and efficiency.</p>
+    </footer>
+  </div>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

@@ -13,12 +13,27 @@ def create_calendar_event(
     end: datetime,
     attendees: list[str],
     description: str = "",
+    owner_email: str = None,
 ) -> tuple[str, str]:
     """
     Create a Google Calendar event and auto-send invites to all attendees.
+    If owner_email is provided and has a token in DB, use that. Otherwise use assistant default.
     Returns: (calendar_event_link, google_meet_link)
     """
-    creds = get_google_credentials()
+    from proto.db_tools import get_user_token
+    from google.oauth2.credentials import Credentials
+
+    creds = None
+    if owner_email:
+        token_data = get_user_token(owner_email)
+        if token_data:
+            print(f"   🔑 Using authorized token for {owner_email}")
+            creds = Credentials.from_authorized_user_info(token_data)
+
+    if not creds:
+        # Fallback to assistant's default credentials
+        creds = get_google_credentials()
+
     service = build("calendar", "v3", credentials=creds)
 
     tz = os.getenv("CALENDAR_TIMEZONE", "Asia/Kolkata")
@@ -125,5 +140,90 @@ def find_best_slot(slots_text: str) -> tuple[datetime, datetime] | None:
             return start_dt, start_dt + timedelta(hours=1)
 
     return None
+
+
+def get_participant_busy_slots(emails: list[str], start: datetime, end: datetime) -> list[dict]:
+    """
+    Fetch busy slots for multiple users from Google Calendar FreeBusy API.
+    Only checks users who have authorized the assistant (token in DB).
+    """
+    from proto.db_tools import get_user_token
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
+
+    busy_slots = []
+    for email in emails:
+        token_data = get_user_token(email)
+        if not token_data:
+            continue
+
+        try:
+            creds = Credentials.from_authorized_user_info(token_data)
+            service = build("calendar", "v3", credentials=creds)
+
+            body = {
+                "timeMin": start.isoformat() + "Z",
+                "timeMax": end.isoformat() + "Z",
+                "items": [{"id": "primary"}]
+            }
+            res = service.freebusy().query(body=body).execute()
+            slots = res.get("calendars", {}).get("primary", {}).get("busy", [])
+            for s in slots:
+                busy_slots.append({
+                    "email": email,
+                    "start": dateparser.parse(s["start"]),
+                    "end": dateparser.parse(s["end"])
+                })
+        except Exception as e:
+            print(f"   ⚠️ Could not fetch busy slots for {email}: {e}")
+
+    return busy_slots
+
+
+def find_consensus_slot(slots_text: str, participants: list[str]) -> tuple[datetime, datetime] | None:
+    """
+    Finds the best slot that works for ALL authorized participants.
+    1. Parses all proposed slots.
+    2. Fetches busy times for participants.
+    3. Returns the first slot that has zero overlaps.
+    """
+    import dateparser
+    from datetime import timedelta
+
+    # 1. Parse all possible slots from the text
+    lines = [l.strip("•- ").strip() for l in slots_text.splitlines() if l.strip()]
+    proposed_slots = []
+    now = datetime.now()
+
+    for line in lines:
+        slot = find_best_slot(line) # Re-use the smart parsing logic
+        if slot:
+            proposed_slots.append(slot)
+
+    if not proposed_slots:
+        return None
+
+    # 2. Fetch busy slots for the range of the proposed times
+    overall_start = min(s[0] for s in proposed_slots)
+    overall_end = max(s[1] for s in proposed_slots)
+    busy_data = get_participant_busy_slots(participants, overall_start, overall_end)
+
+    # 3. Filter proposed slots against busy data
+    for p_start, p_end in proposed_slots:
+        has_conflict = False
+        for busy in busy_data:
+            # Overlap check: (StartA < EndB) and (EndA > StartB)
+            if (p_start < busy["end"]) and (p_end > busy["start"]):
+                print(f"   ⚠️ Conflict for {busy['email']} at {p_start.strftime('%I:%M %p')}")
+                has_conflict = True
+                break
+        
+        if not has_conflict:
+            print(f"   ✅ Consensus reached: {p_start.strftime('%A %B %d, %I:%M %p')}")
+            return p_start, p_end
+
+    # Fallback: If everything has a conflict, return the first one anyway?
+    # Or return None to signify "no consensus reachable"
+    return proposed_slots[0]
 
 

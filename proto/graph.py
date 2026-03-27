@@ -24,6 +24,7 @@ from proto.calendar_tools import create_calendar_event, find_best_slot
 
 class AgentState(TypedDict):
     email: EmailMessage | None          # raw email fetched from inbox
+    participants: list[str]             # all emails in thread (To/Cc)
     intent: str                         # SCHEDULING_REQUEST | THREAD_UPDATE_REQUEST | OTHER
     processed_content: str              # slots text or summary
     cal_link: str                       # Google Calendar event link
@@ -38,7 +39,9 @@ def node_read_email(state: AgentState) -> AgentState:
     """Node 1: Read the latest unread email from Gmail via IMAP."""
     print("\n🔍 [Node] read_email")
     msg = fetch_latest_unseen()
-    return {**state, "email": msg}
+    if msg:
+        return {**state, "email": msg, "participants": msg.recipients}
+    return {**state, "email": msg, "participants": []}
 
 
 def node_classify_intent(state: AgentState) -> AgentState:
@@ -66,35 +69,43 @@ def node_create_calendar(state: AgentState) -> AgentState:
     print("📆 [Node] create_calendar")
     em = state["email"]
     slots_text = state["processed_content"]
+    participants = state["participants"]
 
-    # Parse the best available slot from the LLM output
-    slot = find_best_slot(slots_text)
+    # --- ADVANCED: Consensus Engine ---
+    from proto.calendar_tools import find_consensus_slot
+    slot = find_consensus_slot(slots_text, participants)
 
     if slot is None:
-        print("   → No parseable slot found, skipping calendar creation")
+        print("   → No parseable or available slot found, skipping calendar creation")
         return {**state, "cal_link": "", "meet_link": ""}
 
     start, end = slot
     print(f"   → Scheduling: {start.strftime('%A %B %d, %I:%M %p')} → {end.strftime('%I:%M %p')}")
 
-    # Extract sender email
+    # Extract sender email as the event "owner" (if they are connected)
     sender_email = em.sender
-    if "<" in sender_email:
-        sender_email = sender_email.split("<")[1].rstrip(">").strip()
+    import re
+    match = re.search(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', sender_email)
+    owner_email = match.group() if match else None
+
+    # Filter attendees (remove the assistant from invitations)
+    assistant_email = os.getenv("ASSISTANT_EMAIL")
+    attendees = [p for p in participants if p.lower() != assistant_email.lower()]
 
     try:
         cal_link, meet_link = create_calendar_event(
             title=f"Meeting: {em.subject or 'Team Sync'}",
             start=start,
             end=end,
-            attendees=[sender_email],
+            attendees=attendees,
             description=(
-                f"Meeting coordinated by AI Email Assistant.\n"
-                f"Originally requested via email: \"{em.subject}\""
+                f"Meeting coordinated by ConvoSync AI.\n"
+                f"Consensus reached among: {', '.join(attendees)}\n"
             ),
+            owner_email=owner_email,
         )
         return {**state, "cal_link": cal_link, "meet_link": meet_link}
-    except FileNotFoundError as e:
+    except Exception as e:
         print(f"   ⚠️ Calendar skipped: {e}")
         return {**state, "cal_link": "", "meet_link": ""}
 

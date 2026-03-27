@@ -1,62 +1,56 @@
-"""
-main.py — Entry point for the AI Email Coordination Assistant prototype.
-
-Run:
-    python main.py           # process latest unread email once
-    python main.py --watch   # poll every 60 seconds
-"""
 import os
 import sys
 import time
 from dotenv import load_dotenv
-
-load_dotenv()
-
 from proto.graph import build_graph
 
-
-def run_once():
-    """Build and invoke the LangGraph agent once."""
-    print("\n" + "="*55)
-    print("  🤖 AI Email Coordination Assistant — Prototype")
-    print("="*55)
-
-    app = build_graph()
-    initial_state = {
-        "email": None,
-        "intent": "",
-        "processed_content": "",
-        "reply_body": "",
-        "status": "",
-    }
-
-    final_state = app.invoke(initial_state)
-
-    print("\n" + "-"*55)
-    print(f"  ✅ Run complete. Status: {final_state['status'].upper()}")
-    if final_state.get("intent"):
-        print(f"  📌 Intent detected: {final_state['intent']}")
-    print("-"*55 + "\n")
-
-    return final_state
-
-
 def main():
+    # Load environment variables from .env
+    load_dotenv()
+    
+    # Build the LangGraph
+    app = build_graph()
+    
+    # Configuration
     watch_mode = "--watch" in sys.argv
+    interval = 60 # Check every 60 seconds in watch mode
+    
+    print("\n=======================================================")
+    print("  🤖 AI Email Coordination Assistant — Prototype")
+    print("=======================================================\n")
+
+    def run_once():
+        # Initial state for each run
+        initial_state = {
+            "email": None,
+            "intent": "",
+            "processed_content": "",
+            "cal_link": "",
+            "meet_link": "",
+            "reply_body": "",
+            "status": ""
+        }
+        
+        try:
+            # Invoke the graph
+            app.invoke(initial_state)
+        except Exception as e:
+            print(f"❌ Error during execution: {e}")
 
     if watch_mode:
-        interval = int(os.getenv("POLL_INTERVAL_SECONDS", 60))
-        print(f"👁️  Watch mode: polling every {interval}s. Press Ctrl+C to stop.\n")
+        print(f"📡 Watch mode active: polling every {interval}s...")
         try:
             while True:
                 run_once()
-                print(f"⏳ Waiting {interval}s for next check...")
+                # Optional: print a separator for the next poll
                 time.sleep(interval)
         except KeyboardInterrupt:
-            print("\n🛑 Agent stopped.")
+            print("\n👋 Assistant stopped.")
     else:
         run_once()
-
+        print("\n-------------------------------------------------------")
+        print("  ✅ Run complete.")
+        print("-------------------------------------------------------\n")
 
 if __name__ == "__main__":
     main()

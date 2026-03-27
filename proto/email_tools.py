@@ -21,6 +21,7 @@ Please verify important information independently.
 class EmailMessage:
     uid: str
     sender: str
+    recipients: list[str]  # New: list of all emails in To and Cc
     subject: str
     body: str
     message_id: str
@@ -54,6 +55,21 @@ def fetch_latest_unseen() -> EmailMessage | None:
         else:
             subject += part
 
+    # Extract all recipients (To + Cc)
+    to_list = raw.get_all("To", [])
+    cc_list = raw.get_all("Cc", [])
+    all_recips = []
+    import re
+    for r in to_list + cc_list:
+        emails = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', r)
+        all_recips.extend(emails)
+    
+    # Also include sender in participants list
+    sender = raw.get("From", "")
+    sender_email = re.search(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', sender)
+    if sender_email:
+        all_recips.append(sender_email.group())
+
     # Extract plain-text body
     body = ""
     if raw.is_multipart():
@@ -64,9 +80,13 @@ def fetch_latest_unseen() -> EmailMessage | None:
     else:
         body = raw.get_payload(decode=True).decode(errors="ignore")
 
+    # Explicitly mark as seen to prevent re-processing
+    mail.store(uid, "+FLAGS", "\\Seen")
+
     msg = EmailMessage(
         uid=uid.decode(),
-        sender=raw.get("From", ""),
+        sender=sender,
+        recipients=list(set(all_recips)), # Unique list
         subject=subject,
         body=body.strip(),
         message_id=raw.get("Message-ID", ""),
