@@ -66,6 +66,32 @@ def extract_time_slots(body: str) -> str:
     return call_llm(system, body)
 
 
+def extract_meeting_metadata(body: str) -> dict:
+    """Extract location and determine if the meeting is physical.
+    Returns: {'location': str, 'is_physical': bool}
+    """
+    system = (
+        "You are a logistics assistant. Analyze the email and extract:\n"
+        "1. Location: The specific place mentioned (e.g., 'Starbucks', 'Zoom', 'The Office').\n"
+        "2. Type: Is this a 'Physical' meeting or 'Virtual'?\n"
+        "If no location is mentioned, assume 'TBD'.\n"
+        "Return the result as a raw JSON object with keys 'location' and 'is_physical' (boolean)."
+    )
+    import json
+    try:
+        raw = call_llm(system, body)
+        # Handle cases where LLM adds markdown or fluff
+        if "```json" in raw:
+            raw = raw.split("```json")[1].split("```")[0].strip()
+        data = json.loads(raw)
+        return {
+            "location": data.get("location", "TBD"),
+            "is_physical": bool(data.get("is_physical", False))
+        }
+    except:
+        return {"location": "TBD", "is_physical": False}
+
+
 def summarize_thread(body: str) -> str:
     """Summarize the email thread/topic."""
     system = (

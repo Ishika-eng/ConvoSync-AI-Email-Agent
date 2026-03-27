@@ -14,6 +14,8 @@ def create_calendar_event(
     attendees: list[str],
     description: str = "",
     owner_email: str = None,
+    location: str = "TBD",
+    is_physical: bool = False
 ) -> tuple[str, str]:
     """
     Create a Google Calendar event and auto-send invites to all attendees.
@@ -22,6 +24,7 @@ def create_calendar_event(
     """
     from proto.db_tools import get_user_token
     from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
 
     creds = None
     if owner_email:
@@ -35,28 +38,52 @@ def create_calendar_event(
         creds = get_google_credentials()
 
     service = build("calendar", "v3", credentials=creds)
-
     tz = os.getenv("CALENDAR_TIMEZONE", "Asia/Kolkata")
 
-    event = {
+    # 1. Main Event
+    event_body = {
         "summary": title,
+        "location": location,
         "description": description,
-        "start": {
-            "dateTime": start.isoformat(),
-            "timeZone": tz,
-        },
-        "end": {
-            "dateTime": end.isoformat(),
-            "timeZone": tz,
-        },
+        "start": {"dateTime": start.isoformat(), "timeZone": tz},
+        "end": {"dateTime": end.isoformat(), "timeZone": tz},
         "attendees": [{"email": a} for a in attendees],
         "conferenceData": {
             "createRequest": {
                 "requestId": f"proto-meet-{int(start.timestamp())}",
                 "conferenceSolutionKey": {"type": "hangoutsMeet"},
             }
-        },
+        } if not is_physical else None,
     }
+
+    event = service.events().insert(
+        calendarId="primary", 
+        body=event_body, 
+        conferenceDataVersion=1
+    ).execute()
+    
+    cal_link = event.get("htmlLink")
+    meet_link = event.get("conferenceData", {}).get("entryPoints", [{}])[0].get("uri", "N/A")
+
+    # 2. Travel Buffers
+    if is_physical:
+        print(f"   🚗 Creating 30-min travel buffers for: {location}")
+        buffer_before = {
+            "summary": f"🚗 Travel to {location}",
+            "location": "Transit",
+            "start": {"dateTime": (start - timedelta(minutes=30)).isoformat(), "timeZone": tz},
+            "end": {"dateTime": start.isoformat(), "timeZone": tz},
+        }
+        buffer_after = {
+            "summary": f"🚗 Travel from {location}",
+            "location": "Transit",
+            "start": {"dateTime": end.isoformat(), "timeZone": tz},
+            "end": {"dateTime": (end + timedelta(minutes=30)).isoformat(), "timeZone": tz},
+        }
+        service.events().insert(calendarId="primary", body=buffer_before).execute()
+        service.events().insert(calendarId="primary", body=buffer_after).execute()
+
+    return cal_link, meet_link
 
     result = service.events().insert(
         calendarId="primary",

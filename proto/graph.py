@@ -14,6 +14,7 @@ from proto.email_tools import fetch_latest_unseen, send_reply, EmailMessage
 from proto.llm_tools import (
     classify_intent,
     extract_time_slots,
+    extract_meeting_metadata, # NEW
     summarize_thread,
     compose_scheduling_reply,
     compose_update_reply,
@@ -28,6 +29,8 @@ class AgentState(TypedDict):
     participants: list[str]             # all emails in thread (To/Cc)
     intent: str                         # SCHEDULING_REQUEST | THREAD_UPDATE_REQUEST | OTHER
     processed_content: str              # slots text or summary
+    location: str                       # NEW: Meeting place
+    is_physical: bool                   # NEW: True if travel buffer needed
     cal_link: str                       # Google Calendar event link
     meet_link: str                      # Google Meet link
     reply_body: str                     # composed reply text
@@ -58,11 +61,21 @@ def node_classify_intent(state: AgentState) -> AgentState:
 
 
 def node_extract_slots(state: AgentState) -> AgentState:
-    """Node 3a: Extract time slots from a scheduling email."""
+    """Node 3a: Extract time slots and location metadata."""
     print("📅 [Node] extract_slots")
-    slots = extract_time_slots(state["email"].body)
+    body = state["email"].body
+    slots = extract_time_slots(body)
+    metadata = extract_meeting_metadata(body)
+    
     print(f"   → Slots found:\n{slots}")
-    return {**state, "processed_content": slots}
+    print(f"   → Location: {metadata['location']} (Physical: {metadata['is_physical']})")
+    
+    return {
+        **state, 
+        "processed_content": slots,
+        "location": metadata["location"],
+        "is_physical": metadata["is_physical"]
+    }
 
 
 def node_create_calendar(state: AgentState) -> AgentState:
@@ -104,9 +117,12 @@ def node_create_calendar(state: AgentState) -> AgentState:
             attendees=attendees,
             description=(
                 f"Meeting coordinated by ConvoSync AI.\n"
+                f"Location: {state.get('location', 'TBD')}\n"
                 f"Consensus reached among: {', '.join(attendees)}\n"
             ),
             owner_email=owner_email,
+            location=state.get("location", "TBD"),
+            is_physical=state.get("is_physical", False)
         )
         return {
             **state, 
