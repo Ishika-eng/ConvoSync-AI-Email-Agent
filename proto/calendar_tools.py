@@ -257,8 +257,7 @@ def find_consensus_slot(slots_text: str, participants: list[str]) -> tuple[datet
             print(f"   ✅ Consensus reached: {p_start.strftime('%A %B %d, %I:%M %p')}")
             return p_start, p_end
 
-    # Fallback: If everything has a conflict, return the first one anyway?
-    # Or return None to signify "no consensus reachable"
-    return proposed_slots[0]
+    # If all provided slots have conflicts, return None (no consensus reachable)
+    return None
 
 
