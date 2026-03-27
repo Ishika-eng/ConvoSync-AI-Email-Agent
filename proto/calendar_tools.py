@@ -169,8 +169,12 @@ def get_participant_busy_slots(emails: list[str], start: datetime, end: datetime
             tz_name = os.getenv("CALENDAR_TIMEZONE", "Asia/Kolkata")
             local_tz = pytz.timezone(tz_name)
             
-            start_aw = local_tz.localize(start).astimezone(pytz.utc)
-            end_aw = local_tz.localize(end).astimezone(pytz.utc)
+            if start.tzinfo:
+                start_aw = start.astimezone(pytz.utc)
+                end_aw = end.astimezone(pytz.utc)
+            else:
+                start_aw = local_tz.localize(start).astimezone(pytz.utc)
+                end_aw = local_tz.localize(end).astimezone(pytz.utc)
 
             body = {
                 "timeMin": start_aw.isoformat().replace("+00:00", "Z"),
