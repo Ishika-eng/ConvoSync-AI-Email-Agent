@@ -5,6 +5,7 @@ Agent nodes:
   read_email → classify_intent → extract_slots → create_calendar → compose_reply → send_reply
                                ↘ summarize_thread ↗
 """
+import os
 from typing import TypedDict, Literal
 from datetime import datetime
 from langgraph.graph import StateGraph, END

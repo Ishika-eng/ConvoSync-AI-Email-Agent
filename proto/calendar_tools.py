@@ -158,21 +158,38 @@ def get_participant_busy_slots(emails: list[str], start: datetime, end: datetime
             continue
 
         try:
+            import dateparser
+            from datetime import timedelta, timezone
             creds = Credentials.from_authorized_user_info(token_data)
             service = build("calendar", "v3", credentials=creds)
 
+            # Convert local naive time to Assistant's timezone, then to UTC for Google
+            # We assume the extracted time is in the CALENDAR_TIMEZONE (default IST)
+            import pytz
+            tz_name = os.getenv("CALENDAR_TIMEZONE", "Asia/Kolkata")
+            local_tz = pytz.timezone(tz_name)
+            
+            start_aw = local_tz.localize(start).astimezone(pytz.utc)
+            end_aw = local_tz.localize(end).astimezone(pytz.utc)
+
             body = {
-                "timeMin": start.isoformat() + "Z",
-                "timeMax": end.isoformat() + "Z",
+                "timeMin": start_aw.isoformat().replace("+00:00", "Z"),
+                "timeMax": end_aw.isoformat().replace("+00:00", "Z"),
                 "items": [{"id": "primary"}]
             }
+            print(f"   🔍 Querying FreeBusy for {email}: {body['timeMin']} -> {body['timeMax']}")
             res = service.freebusy().query(body=body).execute()
+            print(f"   🔍 RAW FREEBUSY RESPONSE: {res}")
             slots = res.get("calendars", {}).get("primary", {}).get("busy", [])
+            print(f"   🔍 Found {len(slots)} busy slots for {email}")
             for s in slots:
+                # Normalize to naive UTC-like for comparison
+                dt_start = dateparser.parse(s["start"]).replace(tzinfo=None)
+                dt_end = dateparser.parse(s["end"]).replace(tzinfo=None)
                 busy_slots.append({
                     "email": email,
-                    "start": dateparser.parse(s["start"]),
-                    "end": dateparser.parse(s["end"])
+                    "start": dt_start,
+                    "end": dt_end
                 })
         except Exception as e:
             print(f"   ⚠️ Could not fetch busy slots for {email}: {e}")
@@ -209,11 +226,20 @@ def find_consensus_slot(slots_text: str, participants: list[str]) -> tuple[datet
     busy_data = get_participant_busy_slots(participants, overall_start, overall_end)
 
     # 3. Filter proposed slots against busy data
+    import pytz
+    tz_name = os.getenv("CALENDAR_TIMEZONE", "Asia/Kolkata")
+    local_tz = pytz.timezone(tz_name)
+
     for p_start, p_end in proposed_slots:
+        # Normalize proposed to naive UTC for accurate comparison with busy_data
+        p_start_utc = local_tz.localize(p_start).astimezone(pytz.utc).replace(tzinfo=None)
+        p_end_utc = local_tz.localize(p_end).astimezone(pytz.utc).replace(tzinfo=None)
+        
         has_conflict = False
         for busy in busy_data:
             # Overlap check: (StartA < EndB) and (EndA > StartB)
-            if (p_start < busy["end"]) and (p_end > busy["start"]):
+            # Both sides are now naive UTC-equivalent
+            if (p_start_utc < busy["end"]) and (p_end_utc > busy["start"]):
                 print(f"   ⚠️ Conflict for {busy['email']} at {p_start.strftime('%I:%M %p')}")
                 has_conflict = True
                 break
