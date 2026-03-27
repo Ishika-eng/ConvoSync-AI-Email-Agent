@@ -231,8 +231,14 @@ def find_consensus_slot(slots_text: str, participants: list[str]) -> tuple[datet
 
     for p_start, p_end in proposed_slots:
         # Normalize proposed to naive UTC for accurate comparison with busy_data
-        p_start_utc = local_tz.localize(p_start).astimezone(pytz.utc).replace(tzinfo=None)
-        p_end_utc = local_tz.localize(p_end).astimezone(pytz.utc).replace(tzinfo=None)
+        # If the slot is already aware (has a timezone like EST/PST), convert it directly.
+        # Otherwise, assume it's in the assistant's local timezone (IST).
+        if p_start.tzinfo:
+            p_start_utc = p_start.astimezone(pytz.utc).replace(tzinfo=None)
+            p_end_utc = p_end.astimezone(pytz.utc).replace(tzinfo=None)
+        else:
+            p_start_utc = local_tz.localize(p_start).astimezone(pytz.utc).replace(tzinfo=None)
+            p_end_utc = local_tz.localize(p_end).astimezone(pytz.utc).replace(tzinfo=None)
         
         has_conflict = False
         for busy in busy_data:

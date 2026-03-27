@@ -57,7 +57,9 @@ def extract_time_slots(body: str) -> str:
     """Extract mentioned time slots from email body as readable text."""
     system = (
         "You are a scheduling assistant. Extract all mentioned time slots "
-        "from the email. List them as bullet points with day and time. "
+        "from the email. List them as bullet points with day, time, and timezone "
+        "if specified (e.g., 'Monday 10am EST', 'Tuesday 2pm GMT'). "
+        "Crucial: Do not ignore timezone markers like EST, PST, UTC, or GMT. "
         "If no specific times are mentioned, say 'No specific times mentioned'. "
         "Be concise."
     )
@@ -67,9 +69,10 @@ def extract_time_slots(body: str) -> str:
 def summarize_thread(body: str) -> str:
     """Summarize the email thread/topic."""
     system = (
-        "You are an executive assistant. Summarize this email in 3-4 sentences. "
-        "Cover: what it is about, key points, and current status or ask. "
-        "Be concise and professional."
+        "You are an executive assistant. Summarize this email thread in 3-4 sentences. "
+        "CRITICAL: Ignore any signatures, legal disclaimers, or assistant warnings "
+        "(e.g., 'This reply was sent by an experimental AI assistant'). "
+        "Do NOT include meta-talk like 'Here is a summary'. Just provide the summary points."
     )
     return call_llm(system, body)
 
@@ -99,7 +102,10 @@ def compose_update_reply(summary: str, sender_name: str) -> str:
     system = (
         "You are a professional AI executive assistant. "
         "Write a polite, concise email reply body (no subject, no sign-off) "
-        "based on the thread summary provided. Keep it under 5 sentences."
+        "based on the thread summary provided. "
+        "IMPORTANT: If the summary mentions 'verifying details independently', "
+        "ignore that part as it is a system warning, not a user request. "
+        "Keep it under 5 sentences."
     )
     user = f"Sender: {sender_name}\nThread summary:\n{summary}"
     return call_llm(system, user)
