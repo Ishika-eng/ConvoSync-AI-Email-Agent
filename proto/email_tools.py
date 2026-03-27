@@ -99,7 +99,13 @@ def fetch_latest_unseen() -> EmailMessage | None:
 
 def send_reply(to: str, subject: str, body: str, reply_to_msg_id: str = None):
     """Send a reply email via SMTP with the AI disclaimer appended."""
-    msg = MIMEText(body + DISCLAIMER)
+    pid = os.getpid()
+    footer = (
+        f"\n\n---\n"
+        f"⚠️ This reply was sent by an experimental AI email assistant (v3.1-Global | PID: {pid}).\n"
+        f"Please verify important information independently."
+    )
+    msg = MIMEText(body + footer)
     msg["Subject"] = subject if subject.lower().startswith("re:") else f"Re: {subject}"
     msg["From"] = os.getenv("ASSISTANT_EMAIL")
     msg["To"] = to

@@ -13,10 +13,11 @@ def main():
     
     # Configuration
     watch_mode = "--watch" in sys.argv
-    interval = 60 # Check every 60 seconds in watch mode
+    interval = 10 # Check every 10 seconds in watch mode
+    pid = os.getpid()
     
     print("\n=======================================================")
-    print("  🤖 AI Email Coordination Assistant — Prototype")
+    print(f"  🤖 AI Email Assistant — Prototype (PID: {pid})")
     print("=======================================================\n")
 
     def run_once():

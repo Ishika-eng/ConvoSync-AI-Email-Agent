@@ -122,12 +122,12 @@ def find_best_slot(slots_text: str) -> tuple[datetime, datetime] | None:
             end_full = f"{prefix} {end_str}".strip() if prefix else end_str
 
             start_dt = dateparser.parse(start_full, settings={"PREFER_DATES_FROM": "future", "RELATIVE_BASE": now})
-            end_dt = dateparser.parse(end_full, settings={"PREFER_DATES_FROM": "future", "RELATIVE_BASE": now})
+            end_dt = dateparser.parse(end_full, settings={"PREFER_DATES_FROM": "future", "RELATIVE_BASE": now, "RETURN_AS_TIMEZONE_AWARE": True})
 
         # 2. Fallback: try parsing the whole line as a single time (or just the start part)
         if not start_dt:
             clean = re.sub(r'\s*[-–]\s*\d{1,2}(?::\d{2})?(?:am|pm)?.*$', '', line, flags=re.IGNORECASE)
-            start_dt = dateparser.parse(clean, settings={"PREFER_DATES_FROM": "future", "RELATIVE_BASE": now})
+            start_dt = dateparser.parse(clean, settings={"PREFER_DATES_FROM": "future", "RELATIVE_BASE": now, "RETURN_AS_TIMEZONE_AWARE": True})
 
         if start_dt:
             # Check if year is too far in future (dateparser bug sometimes picks next year)
