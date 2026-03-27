@@ -23,19 +23,31 @@ const userEmail = urlParams.get('email');
 
 if (isConnected && userEmail) {
   const authSection = document.getElementById('auth-section');
+  const preferencesSection = document.getElementById('preferences-section');
   const connectionForm = document.getElementById('connection-form');
   const formTitle = document.getElementById('form-title');
   const emailInput = document.getElementById('user-email');
+  const hiddenPrefEmail = document.getElementById('hidden-pref-email');
 
-  if (authSection && connectionForm && formTitle) {
+  if (authSection && preferencesSection && connectionForm && formTitle) {
     authSection.style.display = 'none';
-    connectionForm.style.display = 'flex';
-    formTitle.innerHTML = '✅ Connected to ConvoSync AI';
+    preferencesSection.style.display = 'block';
+    formTitle.innerHTML = '✅ Calendar Connected';
     emailInput.value = userEmail;
+    if (hiddenPrefEmail) hiddenPrefEmail.value = userEmail;
     
-    // Smooth scroll to form
-    connectionForm.scrollIntoView({ behavior: 'smooth' });
+    // Smooth scroll to preferences
+    preferencesSection.scrollIntoView({ behavior: 'smooth' });
   }
+}
+
+// Check for redirection back from preferences save
+const isSaved = urlParams.get('saved') === 'true';
+if (isSaved) {
+    document.getElementById('auth-section').style.display = 'none';
+    document.getElementById('preferences-section').style.display = 'none';
+    document.getElementById('connection-form').style.display = 'flex';
+    document.getElementById('form-title').innerHTML = '🚀 ConvoSync AI Active';
 }
 
 // Form Submission Logic

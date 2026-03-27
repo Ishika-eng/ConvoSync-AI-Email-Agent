@@ -152,11 +152,14 @@ def node_compose_reply(state: AgentState) -> AgentState:
     meet_link = state.get("meet_link", "")
 
     if state["intent"] == "SCHEDULING_REQUEST":
+        # Consensus failed if we didn't get any links back
+        failed = (cal_link == "")
         body = compose_scheduling_reply(
             slots=state["processed_content"],
             sender_name=sender_name,
             cal_link=cal_link,
             meet_link=meet_link,
+            consensus_failed=failed
         )
     else:
         body = compose_update_reply(state["processed_content"], sender_name)

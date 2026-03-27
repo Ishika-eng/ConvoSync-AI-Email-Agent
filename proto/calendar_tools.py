@@ -56,10 +56,11 @@ def create_calendar_event(
         } if not is_physical else None,
     }
 
-    event = service.events().insert(
+    service.events().insert(
         calendarId="primary", 
         body=event_body, 
-        conferenceDataVersion=1
+        conferenceDataVersion=1,
+        sendUpdates="all"
     ).execute()
     
     cal_link = event.get("htmlLink")
@@ -83,20 +84,6 @@ def create_calendar_event(
         service.events().insert(calendarId="primary", body=buffer_before).execute()
         service.events().insert(calendarId="primary", body=buffer_after).execute()
 
-    return cal_link, meet_link
-
-    result = service.events().insert(
-        calendarId="primary",
-        body=event,
-        conferenceDataVersion=1,
-        sendUpdates="all",   # ← auto-emails invites to all attendees
-    ).execute()
-
-    cal_link = result.get("htmlLink", "")
-    meet_link = result.get("conferenceData", {}).get("entryPoints", [{}])[0].get("uri", "")
-
-    print(f"   → Calendar event created: {cal_link}")
-    print(f"   → Meet link: {meet_link}")
     return cal_link, meet_link
 
 
@@ -253,20 +240,33 @@ def find_consensus_slot(slots_text: str, participants: list[str]) -> tuple[datet
     if not proposed_slots:
         return None
 
-    # 2. Fetch busy slots for the range of the proposed times
+    # 2. Fetch busy slots AND preferences for all participants
     overall_start = min(s[0] for s in proposed_slots)
     overall_end = max(s[1] for s in proposed_slots)
     busy_data = get_participant_busy_slots(participants, overall_start, overall_end)
 
-    # 3. Filter proposed slots against busy data
+    from proto.db_tools import get_user_preferences
+    participant_prefs = {p: get_user_preferences(p) for p in participants}
+
+    # 3. Filter proposed slots against busy data AND preferences
     import pytz
     tz_name = os.getenv("CALENDAR_TIMEZONE", "Asia/Kolkata")
     local_tz = pytz.timezone(tz_name)
 
+    def is_in_range(start_time, end_time, range_start_str, range_end_str):
+        """Helper to check if a time range overlaps with a preference range (provided as HH:MM)."""
+        r_start = datetime.strptime(range_start_str, "%H:%M").time()
+        r_end = datetime.strptime(range_end_str, "%H:%M").time()
+        
+        # Check if the meeting START or END falls within the forbidden range
+        s_time = start_time.time()
+        e_time = end_time.time()
+        
+        # Overlap check for times
+        return (s_time < r_end) and (e_time > r_start)
+
     for p_start, p_end in proposed_slots:
         # Normalize proposed to naive UTC for accurate comparison with busy_data
-        # If the slot is already aware (has a timezone like EST/PST), convert it directly.
-        # Otherwise, assume it's in the assistant's local timezone (IST).
         if p_start.tzinfo:
             p_start_utc = p_start.astimezone(pytz.utc).replace(tzinfo=None)
             p_end_utc = p_end.astimezone(pytz.utc).replace(tzinfo=None)
@@ -275,20 +275,42 @@ def find_consensus_slot(slots_text: str, participants: list[str]) -> tuple[datet
             p_end_utc = local_tz.localize(p_end).astimezone(pytz.utc).replace(tzinfo=None)
         
         has_conflict = False
+        
+        # Check A: User Preferences (Lunch, Dinner, Office Hours)
+        # We check these FIRST so they are always logged
+        for p_email, prefs in participant_prefs.items():
+            if not prefs: continue
+            
+            # 1. Outside Office Hours
+            o_start = datetime.strptime(prefs["office_start"], "%H:%M").time()
+            o_end = datetime.strptime(prefs["office_end"], "%H:%M").time()
+            if p_start.time() < o_start or p_end.time() > o_end:
+                print(f"   🚫 Outside office hours for {p_email} ({prefs['office_start']}-{prefs['office_end']})")
+                has_conflict = True
+            
+            # 2. Lunch Break
+            if is_in_range(p_start, p_end, prefs["lunch_start"], prefs["lunch_end"]):
+                print(f"   🍱 Lunch conflict for {p_email} ({prefs['lunch_start']}-{prefs['lunch_end']})")
+                has_conflict = True
+
+            # 3. Dinner Time
+            if is_in_range(p_start, p_end, prefs["dinner_start"], prefs["dinner_end"]):
+                print(f"   🍲 Dinner conflict for {p_email} ({prefs['dinner_start']}-{prefs['dinner_end']})")
+                has_conflict = True
+
+        # Check B: Google Calendar Busy Slots
         for busy in busy_data:
-            # Overlap check: (StartA < EndB) and (EndA > StartB)
-            # Both sides are now naive UTC-equivalent
             if (p_start_utc < busy["end"]) and (p_end_utc > busy["start"]):
-                print(f"   ⚠️ Conflict for {busy['email']} at {p_start.strftime('%I:%M %p')}")
+                print(f"   ⚠️ Calendar conflict for {busy['email']} at {p_start.strftime('%I:%M %p')}")
                 has_conflict = True
                 break
         
         if not has_conflict:
             print(f"   ✅ Consensus reached: {p_start.strftime('%A %B %d, %I:%M %p')}")
             return p_start, p_end
+        else:
+            print(f"   ❌ Skipping slot {p_start.strftime('%I:%M %p')} due to conflicts.")
 
-    # Fallback: If everything has a conflict, return the first one anyway?
-    # Or return None to signify "no consensus reachable"
-    return proposed_slots[0]
-
-
+    # If all provided slots have conflicts or preference issues, return None
+    print("   🛑 No available slots found in proposed options.")
+    return None

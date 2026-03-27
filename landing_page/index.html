@@ -33,6 +33,38 @@
               </a>
             </div>
 
+            <!-- Preferences Form (Onboarding) -->
+            <div id="preferences-section" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--glass-border); padding-top: 1.5rem;">
+                <h4 style="margin-bottom: 1rem; color: var(--accent);">⚙️ Set Your Preferred Hours</h4>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">Tell the AI when you're available so it doesn't book meetings during your breaks.</p>
+                
+                <form id="preferences-form" action="http://localhost:8000/save-preferences-form" method="POST">
+                    <input type="hidden" name="email" id="hidden-pref-email">
+                    <div class="input-group">
+                        <label>🏢 Office Hours (Start - End)</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="time" name="office_start" value="09:00" required>
+                            <input type="time" name="office_end" value="18:00" required>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>🍴 Lunch Break (Start - End)</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="time" name="lunch_start" value="13:00" required>
+                            <input type="time" name="lunch_end" value="14:00" required>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>🌙 Dinner Time (Start - End)</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="time" name="dinner_start" value="20:00" required>
+                            <input type="time" name="dinner_end" value="21:00" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="cta-button" style="width: 100%; margin-top: 1rem;">Save & Launch AI</button>
+                </form>
+            </div>
+
             <form id="connection-form" style="display: none; margin-top: 2rem; border-top: 1px solid var(--glass-border); padding-top: 2rem;">
               <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">Send a quick message to the agent.</p>
               <input type="text" id="user-name" placeholder="Your Name" required>

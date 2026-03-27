@@ -103,16 +103,18 @@ def summarize_thread(body: str) -> str:
     return call_llm(system, body)
 
 
-def compose_scheduling_reply(slots: str, sender_name: str, cal_link: str = "", meet_link: str = "") -> str:
+def compose_scheduling_reply(slots: str, sender_name: str, cal_link: str = "", meet_link: str = "", consensus_failed: bool = False) -> str:
     """Compose a reply for a scheduling request, optionally including calendar details."""
     system = (
         "You are a professional AI scheduling assistant. "
         "Write a polite, concise email reply body (no subject, no sign-off). "
-        "CRITICAL: If the mentioned slots start with 'Confirmed:', you MUST use "
-        "only that specific date and time for the reply. Ignore all other options. "
-        "If a calendar link and meet link are provided in the input, mention that the meeting "
-        "has been scheduled and include the EXACT links provided. "
-        "If NO links are provided, do NOT invent any. Just acknowledge the slots. "
+        "CRITICAL: If 'consensus_failed' is True, you MUST inform the sender that "
+        "the proposed time(s) conflict with the user's personal schedule or existing "
+        "calendar events. Politely ask them to suggest a different time. "
+        "If 'consensus_failed' is False and slots start with 'Confirmed:', you MUST "
+        "use only that specific date and time for the reply. "
+        "If a calendar link and meet link are provided, mention the meeting is "
+        "scheduled and include the EXACT links. Do NOT invent links. "
         "Keep it under 6 sentences."
     )
     calendar_info = ""
@@ -121,7 +123,7 @@ def compose_scheduling_reply(slots: str, sender_name: str, cal_link: str = "", m
     if meet_link:
         calendar_info += f"\nGoogle Meet: {meet_link}"
 
-    user = f"Sender: {sender_name}\nMentioned slots:\n{slots}{calendar_info}"
+    user = f"Sender: {sender_name}\nConsensus Failed: {consensus_failed}\nMentioned slots:\n{slots}{calendar_info}"
     return call_llm(system, user)
 
 

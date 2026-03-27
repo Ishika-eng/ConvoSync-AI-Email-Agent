@@ -1,6 +1,6 @@
 import os
 import json
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Form # Added Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
@@ -12,7 +12,7 @@ from google_auth_oauthlib.flow import Flow
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
-from proto.db_tools import init_db, save_user_token, get_user_token
+from proto.db_tools import init_db, save_user_token, get_user_token, save_user_preferences # Updated import
 
 load_dotenv()
 init_db()
@@ -23,14 +23,21 @@ os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 
 app = FastAPI()
 
-# Enable CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# --- ULTIMATE MANUAL CORS MIDDLEWARE ---
+@app.middleware("http")
+async def add_cors_header(request: Request, call_next):
+    if request.method == "OPTIONS":
+        from fastapi.responses import Response
+        response = Response()
+    else:
+        response = await call_next(request)
+    
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS, DELETE, PUT"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
+
+# Remove old CORSMiddleware logic entirely
 
 # --- GOOGLE OAUTH CONFIG ---
 CLIENT_SECRETS_FILE = "credentials.json"
@@ -47,6 +54,46 @@ class ConnectionRequest(BaseModel):
     name: str
     email: str
     message: str
+
+class UserPreferences(BaseModel):
+    email: str
+    office_start: str
+    office_end: str
+    lunch_start: str
+    lunch_end: str
+    dinner_start: str
+    dinner_end: str
+
+@app.post("/save-preferences")
+def save_prefs(prefs: UserPreferences):
+    """Saves user-defined working hours and meal times (JSON API)."""
+    print(f"📥 Received preferences for {prefs.email}")
+    save_user_preferences(prefs.email, prefs.dict())
+    return {"status": "success"}
+
+@app.post("/save-preferences-form")
+def save_prefs_form(
+    email: str = Form(...),
+    office_start: str = Form(...),
+    office_end: str = Form(...),
+    lunch_start: str = Form(...),
+    lunch_end: str = Form(...),
+    dinner_start: str = Form(...),
+    dinner_end: str = Form(...)
+):
+    """Saves preferences from a standard HTML form and redirects back."""
+    prefs = {
+        "email": email,
+        "office_start": office_start,
+        "office_end": office_end,
+        "lunch_start": lunch_start,
+        "lunch_end": lunch_end,
+        "dinner_start": dinner_start,
+        "dinner_end": dinner_end
+    }
+    print(f"📥 Received Form preferences for {email}")
+    save_user_preferences(email, prefs)
+    return RedirectResponse(url=f"http://localhost:5173/?saved=true&email={email}", status_code=303)
 
 @app.get("/")
 def read_root():
