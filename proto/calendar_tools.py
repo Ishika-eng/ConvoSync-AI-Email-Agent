@@ -116,6 +116,9 @@ def find_best_slot(slots_text: str) -> tuple[datetime, datetime] | None:
     lines = [l.strip("•- ").strip() for l in slots_text.splitlines() if l.strip()]
 
     for line in lines:
+        # NEW: Strip parentheses/meta-text like "(No timezone specified)"
+        line = re.sub(r'\(.*?\)', '', line).strip()
+        
         # Skip lines that say "no specific time"
         if "no specific" in line.lower() or "not mentioned" in line.lower():
             continue

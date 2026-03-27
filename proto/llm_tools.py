@@ -110,7 +110,9 @@ def compose_scheduling_reply(slots: str, sender_name: str, cal_link: str = "", m
         "Write a polite, concise email reply body (no subject, no sign-off). "
         "CRITICAL: If the mentioned slots start with 'Confirmed:', you MUST use "
         "only that specific date and time for the reply. Ignore all other options. "
-        "Mention that the meeting has been scheduled and include the links clearly. "
+        "If a calendar link and meet link are provided in the input, mention that the meeting "
+        "has been scheduled and include the EXACT links provided. "
+        "If NO links are provided, do NOT invent any. Just acknowledge the slots. "
         "Keep it under 6 sentences."
     )
     calendar_info = ""
