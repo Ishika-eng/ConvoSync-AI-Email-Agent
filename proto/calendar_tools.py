@@ -179,7 +179,6 @@ def get_participant_busy_slots(emails: list[str], start: datetime, end: datetime
             }
             print(f"   🔍 Querying FreeBusy for {email}: {body['timeMin']} -> {body['timeMax']}")
             res = service.freebusy().query(body=body).execute()
-            print(f"   🔍 RAW FREEBUSY RESPONSE: {res}")
             slots = res.get("calendars", {}).get("primary", {}).get("busy", [])
             print(f"   🔍 Found {len(slots)} busy slots for {email}")
             for s in slots:

@@ -79,8 +79,9 @@ def compose_scheduling_reply(slots: str, sender_name: str, cal_link: str = "", m
     system = (
         "You are a professional AI scheduling assistant. "
         "Write a polite, concise email reply body (no subject, no sign-off). "
-        "If a calendar link and meet link are provided, mention that the meeting has been "
-        "scheduled and include them clearly. If not, acknowledge the slots and say you are coordinating. "
+        "CRITICAL: If the mentioned slots start with 'Confirmed:', you MUST use "
+        "only that specific date and time for the reply. Ignore all other options. "
+        "Mention that the meeting has been scheduled and include the links clearly. "
         "Keep it under 6 sentences."
     )
     calendar_info = ""

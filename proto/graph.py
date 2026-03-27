@@ -94,6 +94,9 @@ def node_create_calendar(state: AgentState) -> AgentState:
     attendees = [p for p in participants if p.lower() != assistant_email.lower()]
 
     try:
+        # Update state with the final agreed-upon slot for the reply composer
+        final_slot_text = f"Confirmed: {start.strftime('%A, %B %d at %I:%M %p')}"
+        
         cal_link, meet_link = create_calendar_event(
             title=f"Meeting: {em.subject or 'Team Sync'}",
             start=start,
@@ -105,7 +108,12 @@ def node_create_calendar(state: AgentState) -> AgentState:
             ),
             owner_email=owner_email,
         )
-        return {**state, "cal_link": cal_link, "meet_link": meet_link}
+        return {
+            **state, 
+            "cal_link": cal_link, 
+            "meet_link": meet_link,
+            "processed_content": final_slot_text # Override with the final consensus
+        }
     except Exception as e:
         print(f"   ⚠️ Calendar skipped: {e}")
         return {**state, "cal_link": "", "meet_link": ""}
